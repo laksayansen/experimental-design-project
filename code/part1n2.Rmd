@@ -1,0 +1,102 @@
+---
+title: "STA305H5S Winter 2026 Project: Experimental Design"
+author: "Devi Dahlia, Laksa Fadhil Yansen, Handaru Kevin Ashshidique"
+output: 
+  pdf_document:
+    number_sections: false
+    latex_engine: xelatex
+header-includes:
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhead[L]{STA305H5-Experimental Design}
+  - \fancyfoot[CO,CE]{}
+  - \fancyfoot[LE,RO]{\thepage}
+  - \usepackage{setspace}
+  - \onehalfspacing
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(scidesignR)
+data("fertdat")
+```
+
+# Part 1: Comparing Two Treatments
+
+**Introduction:** This report compares the effects of two fertilizers on crop yield using statistical analysis. It includes exploratory data analysis, hypothesis testing, and interpretation of results, followed by a power analysis to determine an appropriate sample size for a future study.
+
+**Research Question**: The goal of this analysis is to determine whether the mean crop yield differs between fertilizer A and fertilizer B.
+
+**Experimental Design**: In this study, the experimental units are the individual plots or plants that received fertilizer treatment. The response variable is crop yield. The treatment factor is fertilizer type, with two levels: fertilizer A and fertilizer B. This is a completely randomized comparison of two treatments, where the main objective is to assess whether the average yield differs between the two fertilizer groups.
+
+**Exploratory Data Analysis:** This section explores the structure and summary of the fertilizer dataset before conducting formal statistical analysis.
+
+```{r}
+head(fertdat)
+str(fertdat)
+summary(fertdat)
+```
+
+The dataset contains 12 observations with two variables: `fert`, which represents crop yield, and `trt`, which indicates the fertilizer type (A or B). The average yield is approximately 21.33, with values ranging from 11.4 to 28.5. The treatment variable consists of two groups, making it suitable for comparing mean yield between fertilizer A and fertilizer B.
+
+```{r}
+boxplot(fert ~ trt, data = fertdat,
+        main = "Crop Yield by Fertilizer Type",
+        xlab = "Fertilizer Type",
+        ylab = "Yield")
+```
+
+The boxplot shows the distribution of crop yield for each fertilizer group. There appears to be a difference in the central tendency between the two treatments, suggesting that one fertilizer may produce higher yields than the other.
+
+**Assumption Checks:**
+
+```{r}
+model <- lm(fert ~ trt, data = fertdat)
+
+qqnorm(residuals(model))
+qqline(residuals(model))
+```
+
+The QQ plot is used to assess whether the residuals follow a normal distribution. The points appear to lie approximately along the reference line, suggesting that the normality assumption is reasonable.
+
+```{r}
+shapiro.test(residuals(model))
+```
+
+The Shapiro-Wilk test gives a p-value of 0.8418, indicating no evidence against normality. Therefore, the normality assumption for the residuals appears to be satisfied.
+
+The boxplot from "Exploratory Data Analysis" part shows that the spread of the data is relatively similar across the two groups, suggesting that the equal variance assumption is reasonable.
+
+**Hypothesis Test Results:**
+
+```{r}
+t.test(fert ~ trt, data = fertdat)
+```
+
+A two-sample t-test was conducted to compare mean crop yield between fertilizer A and fertilizer B. The results show no statistically significant difference in mean yield between the two groups (t = 0.52, p = 0.6168). The 95% confidence interval for the difference in means is (-5.86, 9.26).
+
+The average yield for fertilizer A (22.18) is slightly higher than for fertilizer B (20.48); however, this difference is not statistically significant, suggesting no clear evidence that one fertilizer outperforms the other.
+
+# Part 2: Power and Sample Size
+
+**Practical Effect Size:** The observed difference in mean crop yield between fertilizer A and fertilizer B is approximately 1.70 units (22.18 − 20.48). This value is relatively small and will be used as the baseline effect size for planning a future study.
+
+**Sample Size Calculation:**
+```{r}
+power.t.test(delta = 1.7,
+             sd = sd(fertdat$fert),
+             power = 0.8,
+             sig.level = 0.05,
+             type = "two.sample")
+```
+Using the observed effect size of 1.7 and an estimated standard deviation of 5.46, the required sample size to achieve 80% power at a significance level of 0.05 is approximately 163 observations per group. This indicates that a much larger sample would be needed to reliably detect such a small difference in mean yield.
+
+**Sensitivity Discussion**
+
+If the effect size is smaller, a larger sample size would be required to achieve the same level of power. Similarly, if variability in the data increases, it becomes more difficult to detect differences, which also increases the required sample size. Therefore, both smaller effects and higher variability lead to larger sample size requirements.
+
+**Conclusion**
+
+This analysis compared crop yield between fertilizer A and fertilizer B. The results showed no statistically significant difference in mean yield (p = 0.6168), with fertilizer A having a slightly higher average yield (22.18) than fertilizer B (20.48). 
+
+The 95% confidence interval (-5.86, 9.26) includes zero, further indicating no clear evidence of a treatment effect. The power analysis showed that approximately 163 observations per group would be required to detect this small difference, highlighting that the current sample size is too small to reliably identify such effects.

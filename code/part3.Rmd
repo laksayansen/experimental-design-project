@@ -1,0 +1,249 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+# Part 3: More Than Two Treatments (ANOVA, RBD, Latin Square)
+
+## 3A: One-Way ANOVA
+
+**Introduction:** This section compares pain scores across three treatment groups using a one-way ANOVA. The analysis includes exploratory data analysis, assumption checking, and post-hoc comparisons to identify which treatment groups differ.
+
+**Research Question:** Does the mean pain score differ significantly across the three treatment groups (A, B, and C)?
+
+**Experimental Design:** The experimental units are individual subjects assigned to one of three treatment groups. The response variable is pain score, measured on a scale from 0 (no pain) to 10 (worst possible pain). The treatment factor is treatment type with three levels: A, B, and C. This is a completely randomized design with 50 subjects per group, for a total of 150 observations.
+
+**Exploratory Data Analysis:**
+
+```{r}
+library(scidesignR)
+data("painstudy")
+painstudy$trt <- as.factor(painstudy$trt)
+
+tapply(painstudy$pain, painstudy$trt, mean)
+tapply(painstudy$pain, painstudy$trt, sd)
+tapply(painstudy$pain, painstudy$trt, length)
+```
+
+The dataset contains 150 observations across three treatment groups, each with 50 subjects — a balanced design. Treatment B has the highest mean pain score (7.32), followed by A (6.20), with C having the lowest (3.64). The standard deviations are similar across groups (approximately 1.2 to 1.5), suggesting that the equal variance assumption may be reasonable.
+
+```{r}
+boxplot(pain ~ trt, data = painstudy,
+        xlab = "Treatment", ylab = "Pain Score",
+        main = "Pain Scores by Treatment Group",
+        col = c("lightblue", "lightcoral", "lightyellow"))
+```
+
+The boxplot confirms the separation between groups observed in the summary statistics. Treatment C is notably lower than both A and B, while B has the highest pain scores. The similar spread across groups supports the equal variance assumption.
+
+**Assumption Checks:**
+
+```{r}
+aov_pain <- aov(pain ~ trt, data = painstudy)
+
+plot(aov_pain$fitted.values, aov_pain$residuals,
+     xlab = "Fitted Values", ylab = "Residuals",
+     main = "Residuals vs Fitted - Pain Study")
+abline(h = 0, lty = 2)
+```
+
+The residuals vs fitted plot shows random scatter around zero with roughly equal spread across all three groups. There is no systematic pattern or funnel shape, indicating the constant variance assumption is satisfied.
+
+```{r}
+qqnorm(aov_pain$residuals, main = "Normal Q-Q Plot - Pain Study")
+qqline(aov_pain$residuals)
+
+shapiro.test(aov_pain$residuals)
+```
+
+The QQ plot shows points following the diagonal line reasonably well, with mild deviation at both tails. The Shapiro-Wilk test yields a p-value of 0.0559, which is above 0.05, providing no significant evidence against normality. Given the large sample size of 150 observations, the ANOVA is robust to minor departures from normality, and the assumptions are considered reasonably satisfied.
+
+**ANOVA Results:**
+
+```{r}
+summary(aov_pain)
+```
+
+The one-way ANOVA yields F(2, 147) = 98.92 with p < 0.0001, providing extremely strong evidence to reject the null hypothesis that all treatment means are equal. At least one pair of treatment means differs significantly. Since the F-test does not identify which specific pairs differ, a Tukey post-hoc test is conducted.
+
+**Post-Hoc Comparisons:**
+
+```{r}
+TukeyHSD(aov_pain)
+plot(TukeyHSD(aov_pain))
+```
+
+Tukey's HSD test reveals that all three pairwise comparisons are statistically significant. The difference between B and A is 1.12 (p = 0.0001), between C and A is -2.56 (p < 0.0001), and between C and B is -3.68 (p < 0.0001). None of the 95% confidence intervals contain zero, confirming that every pair of treatments produces a significantly different mean pain score.
+
+**Conclusion:** There is strong statistical evidence that the three treatments produce different mean pain scores. Treatment B is associated with the highest pain (mean = 7.32), Treatment A is intermediate (mean = 6.20), and Treatment C is associated with the lowest pain (mean = 3.64). These results suggest that Treatment C is the most effective at reducing pain among the three options.
+
+---
+
+## 3B: Randomized Block Design
+
+**Introduction:** This section analyzes shoe wear data from a randomized block design. Boys were used as blocks to control for natural variation in physical activity, weight, and walking style, allowing a cleaner comparison of the two shoe materials.
+
+**Research Question:** Is there a significant difference in the amount of wear between shoe material A and shoe material B, after accounting for differences between boys?
+
+**Experimental Design:** The experimental units are individual shoes worn by 10 boys. Each boy wore two shoes simultaneously — one made of material A and one of material B — with the assignment of material to foot (left or right) randomized for each boy. The response variable is the amount of wear recorded for each shoe. The treatment factor is shoe material (A or B), and the block factor is boy (1 to 10). This is a randomized block design with each boy serving as one block, and both treatments observed within every block.
+
+Blocking on boy is appropriate because individual boys differ in ways that naturally affect shoe wear — such as physical activity level, body weight, and walking style. These differences are a known source of variability unrelated to material type. By blocking on boy, this between-subject variation is separated from the treatment comparison, improving the precision of the material effect estimate.
+
+**Data Preparation and Exploratory Data Analysis:**
+
+```{r}
+data("shoedat_obs")
+
+shoedat_obs_long <- data.frame(
+  boy      = rep(shoedat_obs$boy, 2),
+  material = rep(c("A", "B"), each = 10),
+  wear     = c(shoedat_obs$wearA, shoedat_obs$wearB)
+)
+
+shoedat_obs_long$material <- as.factor(shoedat_obs_long$material)
+shoedat_obs_long$boy      <- as.factor(shoedat_obs_long$boy)
+
+tapply(shoedat_obs_long$wear, shoedat_obs_long$material, mean)
+tapply(shoedat_obs_long$wear, shoedat_obs_long$material, sd)
+```
+
+The dataset was reshaped from wide to long format to accommodate the RBD model structure, resulting in 20 observations (10 boys × 2 materials). Material A has a mean wear of 10.03 (SD = 0.93) and material B has a mean wear of 11.38 (SD = 2.57). Material B shows notably higher variability than A.
+
+```{r}
+boxplot(wear ~ material, data = shoedat_obs_long,
+        xlab = "Material", ylab = "Amount of Wear",
+        main = "Shoe Wear by Material",
+        col = c("lightblue", "lightyellow"))
+```
+
+```{r}
+boxplot(wear ~ boy, data = shoedat_obs_long,
+        xlab = "Boy", ylab = "Amount of Wear",
+        main = "Shoe Wear by Boy (Block Variation)",
+        col = "lightgrey")
+```
+
+The material boxplot shows that material B has a higher median and wider spread than material A, though the difference is not immediately clear-cut due to B's variability. The boy-level boxplot reveals noticeable differences in wear across boys — for instance, boys 4 and 5 show higher overall wear while boys 7 and 9 show lower wear — providing visual justification for blocking on boy.
+
+**Assumption Checks:**
+
+```{r}
+rbd_model <- lm(wear ~ material + boy, data = shoedat_obs_long)
+
+plot(rbd_model$fitted.values, rbd_model$residuals,
+     xlab = "Fitted Values", ylab = "Residuals",
+     main = "Residuals vs Fitted - RBD")
+abline(h = 0, lty = 2)
+```
+
+The residuals vs fitted plot shows random scatter around zero with no systematic pattern, indicating the constant variance assumption is satisfied.
+
+```{r}
+qqnorm(rbd_model$residuals, main = "Normal Q-Q Plot - Shoe Study")
+qqline(rbd_model$residuals)
+
+shapiro.test(rbd_model$residuals)
+```
+
+The QQ plot follows the diagonal line reasonably well. The Shapiro-Wilk test yields p = 0.8908, providing no evidence against normality. The assumptions of the RBD model are satisfied.
+
+**RBD Model Results:**
+
+```{r}
+anova(rbd_model)
+```
+
+The RBD ANOVA table shows no statistically significant treatment effect for material (F = 1.74, p = 0.2198), and the block effect for boy is also non-significant (F = 0.43, p = 0.8878). There is insufficient evidence to conclude that materials A and B produce different amounts of wear.
+
+**Comparison with Unblocked Analysis:**
+
+```{r}
+unblocked_model <- lm(wear ~ material, data = shoedat_obs_long)
+anova(unblocked_model)
+```
+
+The unblocked model yields a slightly higher F-value for material (F = 2.43, p = 0.1362) with a lower MSE (3.74 vs 5.23 in the blocked model). This is an atypical result — blocking typically reduces MSE by removing between-block variation. In this case, the block effect for boy was not significant, meaning boys did not vary substantially in their overall wear levels. As a result, blocking consumed 9 degrees of freedom without meaningfully reducing error variance, which inflated MSE in the blocked model. This illustrates that blocking is only beneficial when between-block variation is substantial, consistent with the principle that units should be arranged so that within-block variation is much smaller than between-block variation. Regardless, both models lead to the same conclusion: there is no significant difference in wear between the two materials.
+
+**Conclusion:** There is no statistically significant difference in shoe wear between material A (mean = 10.03) and material B (mean = 11.38) in either the blocked or unblocked analysis. The blocking factor of boy was not effective in this dataset, as boys did not exhibit substantial variation in overall wear levels.
+
+---
+
+## 3C: Latin Square Design
+
+**Introduction:** This section analyzes serum calcium levels in dogs using a Latin Square design. Two sources of nuisance variation — dogs and weeks — are controlled simultaneously, allowing a clean assessment of the treatment effect.
+
+**Research Question:** Do the four treatments produce significantly different mean serum calcium levels (in Mg-per cent) after controlling for variation due to dogs and weeks?
+
+**Experimental Design:** The experimental units are individual measurements of serum calcium taken from 4 dogs across 4 weeks. The response variable is Mg-per cent serum calcium. The treatment factor is treatment type with four levels: A, B, C, and D. The two blocking factors are dogs (rows) and weeks (columns). This is a 4×4 Latin Square design in which each treatment appears exactly once in each row (dog) and exactly once in each column (week), simultaneously controlling for both sources of nuisance variation.
+
+Blocking on dogs is appropriate because different dogs may have naturally different baseline calcium levels due to biological differences. Blocking on weeks is appropriate because time-related effects such as seasonal variation or carry-over effects may influence measurements taken in different weeks. The Latin Square design eliminates both sources of variability from the error term.
+
+**Exploratory Data Analysis:**
+
+```{r}
+data("BR_LatSq")
+
+BR_LatSq$Treat <- as.factor(BR_LatSq$Treat)
+BR_LatSq$Dogs  <- as.factor(BR_LatSq$Dogs)
+BR_LatSq$Weeks <- as.factor(BR_LatSq$Weeks)
+
+tapply(BR_LatSq$value, BR_LatSq$Treat, mean)
+tapply(BR_LatSq$value, BR_LatSq$Treat, sd)
+```
+
+The dataset contains 16 observations from a 4×4 Latin Square. Treatment means are A = 14.75, B = 15.55, C = 14.28, and D = 15.55. Treatments B and D share the highest mean, while C has the lowest. Standard deviations range from 0.44 to 1.00 across groups.
+
+```{r}
+boxplot(value ~ Treat, data = BR_LatSq,
+        xlab = "Treatment", ylab = "Serum Calcium (Mg-%)",
+        main = "Serum Calcium by Treatment",
+        col = c("lightblue", "lightgreen", "lightyellow", "lightpink"))
+```
+
+```{r}
+boxplot(value ~ Dogs, data = BR_LatSq,
+        xlab = "Dog", ylab = "Serum Calcium (Mg-%)",
+        main = "Serum Calcium by Dog (Row Block)",
+        col = "lightgrey")
+```
+
+```{r}
+boxplot(value ~ Weeks, data = BR_LatSq,
+        xlab = "Week", ylab = "Serum Calcium (Mg-%)",
+        main = "Serum Calcium by Week (Column Block)",
+        col = "lightyellow")
+```
+
+The treatment boxplot shows modest differences across groups, with C appearing lowest and B and D highest. The dog-level boxplot reveals a clear downward trend in median calcium from dog 1 to dog 4, providing strong visual justification for blocking on dogs. The week-level boxplot shows less dramatic differences, with Week 2 appearing slightly higher, supporting the inclusion of weeks as a second blocking factor.
+
+**Assumption Checks:**
+
+```{r}
+latin_model <- lm(value ~ Treat + Dogs + Weeks, data = BR_LatSq)
+
+plot(latin_model$fitted.values, latin_model$residuals,
+     xlab = "Fitted Values", ylab = "Residuals",
+     main = "Residuals vs Fitted - Latin Square")
+abline(h = 0, lty = 2)
+```
+
+The residuals vs fitted plot shows reasonable random scatter around zero with no clear systematic pattern, supporting the constant variance assumption.
+
+```{r}
+qqnorm(latin_model$residuals, main = "Normal Q-Q Plot - Latin Square")
+qqline(latin_model$residuals)
+
+shapiro.test(latin_model$residuals)
+```
+
+The QQ plot follows the diagonal line reasonably well with mild deviation at the lower tail. The Shapiro-Wilk test yields p = 0.2213, providing no evidence against normality. The model assumptions are considered satisfied.
+
+**Latin Square Model Results:**
+
+```{r}
+anova(latin_model)
+```
+
+The Latin Square ANOVA table shows no statistically significant treatment effect (F = 3.01, p = 0.1162). The blocking factors for dogs (F = 1.79, p = 0.2485) and weeks (F = 0.35, p = 0.7936) are also non-significant. There is insufficient evidence to conclude that the four treatments produce different mean serum calcium levels.
+
+**Conclusion:** There is no statistically significant difference in serum calcium levels across the four treatments after controlling for variation due to dogs and weeks (F = 3.01, p = 0.1162). A notable limitation of this analysis is the small sample size — the 4×4 Latin Square yields only 6 degrees of freedom for error, resulting in low statistical power. A real treatment effect may exist but remain undetected due to this constraint. Replicating the Latin Square would increase residual degrees of freedom and improve the sensitivity of the test.
